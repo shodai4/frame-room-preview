@@ -39,7 +39,8 @@ struct ControlPanel: View {
     // MARK: - キャプション
 
     private var captionRow: some View {
-        HStack(alignment: .center, spacing: 14) {
+        let hasArtwork = studio.hasArtwork
+        return HStack(alignment: .center, spacing: 14) {
             Text(studio.canvas.caption)
                 .font(Theme.mono(10.5))
                 .foregroundStyle(Theme.charcoal)
@@ -49,7 +50,7 @@ struct ControlPanel: View {
             Spacer(minLength: 8)
 
             PhotosPicker(selection: $studio.artworkItem, matching: .images) {
-                Text(studio.hasArtwork ? "作品を替える" : "作品を選ぶ")
+                Text(hasArtwork ? "作品を替える" : "作品を選ぶ")
                     .font(Theme.label(11))
                     .foregroundStyle(Theme.ink)
             }

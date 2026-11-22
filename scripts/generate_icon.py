@@ -1,11 +1,11 @@
-"""アプリアイコン（1024×1024）を作る。アイボリー × 墨色 + 額縁の一辺。
+"""アプリアイコン（1024×1024）を作る。アイボリー × 墨 + 麻色の面。
 
-紙の上に、墨の細い額縁をひとつ。中は麻の色の面。引き算だけで作る。
+紙の上に、墨の細い額縁をひとつ。中は麻色の面。引き算だけで作る。
 """
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -15,9 +15,21 @@ SIZE = 1024
 SCALE = 4
 PAPER = (249, 248, 245)
 INK = (26, 26, 27)
-GROUND_TOP = (240, 231, 214)
-GROUND_BOTTOM = (214, 202, 180)
+GROUND_TOP = (241, 233, 217)
+GROUND_BOTTOM = (211, 198, 174)
 MAT = (252, 251, 247)
+
+
+def vertical_gradient(width: int, height: int, top, bottom) -> Image.Image:
+    """1px 幅で作ってから拡大する（横方向に色を混ぜない）。"""
+    strip = Image.new("RGB", (1, height))
+    for y in range(height):
+        t = y / max(1, height - 1)
+        strip.putpixel(
+            (0, y),
+            tuple(int(top[i] + (bottom[i] - top[i]) * t) for i in range(3)),
+        )
+    return strip.resize((width, height), Image.LANCZOS)
 
 
 def main() -> None:
@@ -25,46 +37,46 @@ def main() -> None:
     image = Image.new("RGB", (canvas, canvas), PAPER)
     draw = ImageDraw.Draw(image)
 
-    # 額縁の外寸（画面の 55% × 43%）
-    frame_w = 0.556 * canvas
-    frame_h = 0.432 * canvas
+    # 額縁の外寸（画面の 68% × 54%）
+    frame_w = 0.68 * canvas
+    frame_h = 0.54 * canvas
     left = (canvas - frame_w) / 2
     top = (canvas - frame_h) / 2
     right = left + frame_w
     bottom = top + frame_h
 
-    # 内側の面（麻色のグラデーション）
-    band = 0.036 * canvas
-    inner = [left + band, top + band, right - band, bottom - band]
-    gradient = Image.new("RGB", (8, 256))
-    for y in range(256):
-        t = y / 255
-        gradient.putpixel(
-            (0, y),
-            tuple(
-                int(GROUND_TOP[i] + (GROUND_BOTTOM[i] - GROUND_TOP[i]) * t)
-                for i in range(3)
-            ),
-        )
-    gradient = gradient.resize(
-        (int(inner[2] - inner[0]), int(inner[3] - inner[1])), Image.LANCZOS
-    )
-    image.paste(gradient, (int(inner[0]), int(inner[1])))
+    band = 0.030 * canvas
+    mat = 0.026 * canvas
 
-    # 墨の額縁（外側の稜線と内側の溝を 1 本ずつ）
+    # 壁に落ちる淡い影（右下へ少し落とす）
+    shadow = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
+    shift = 0.010 * canvas
+    ImageDraw.Draw(shadow).rectangle(
+        [left + shift * 0.4, top + shift, right + shift * 0.4, bottom + shift],
+        fill=(0, 0, 0, 96),
+    )
+    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=0.014 * canvas))
+    image = Image.alpha_composite(image.convert("RGBA"), shadow).convert("RGB")
+    draw = ImageDraw.Draw(image)
+
+    # 中の面（麻色のグラデーション）
+    inner = [
+        int(left + band + mat),
+        int(top + band + mat),
+        int(right - band - mat),
+        int(bottom - band - mat),
+    ]
+    ground = vertical_gradient(inner[2] - inner[0], inner[3] - inner[1], GROUND_TOP, GROUND_BOTTOM)
+    image.paste(ground, (inner[0], inner[1]))
+
+    # 墨の額縁
     draw.rectangle([left, top, right, bottom], outline=INK, width=int(band))
+    # 内側の溝（紙の白をひと筋）
+    groove = max(2, int(0.004 * canvas))
     draw.rectangle(
         [left + band, top + band, right - band, bottom - band],
-        outline=(255, 255, 255),
-        width=max(2, int(0.004 * canvas)),
-    )
-
-    # マットの縁（紙の白をひと筋）
-    mat_band = 0.030 * canvas
-    draw.rectangle(
-        [left + band + 1, top + band + 1, right - band - 1, bottom - band - 1],
         outline=MAT,
-        width=int(mat_band),
+        width=groove,
     )
 
     icon = image.resize((SIZE, SIZE), Image.LANCZOS)
